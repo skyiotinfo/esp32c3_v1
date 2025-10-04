@@ -3,8 +3,8 @@
 #include <SoftwareSerial.h>
 #include <ArduinoJson.h>
   
-const char* ssid = "Galaxy M42";
-const char* password =  "Chai1111";
+const char* ssid = "Airtel_9764005401";
+const char* password =  "air46403";
 HTTPClient http;
 SoftwareSerial receiverSerial1(4, 5);
 String receivedMessage = "";
