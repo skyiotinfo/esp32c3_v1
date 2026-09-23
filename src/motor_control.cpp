@@ -139,12 +139,19 @@ void handleButtonEvent() {
 
 void IRAM_ATTR buttonISR() {
   unsigned long now = millis();
-  if (now - lastButtonIsrMs > 200) {
+  bool buttonDown = (digitalRead(BUTTON_PIN) == LOW);
+
+  if (!buttonDown) {
     lastButtonIsrMs = now;
-    if (!otTripped) {
-      bool currentlyOn = (digitalRead(MOTOR_PIN) == HIGH);
-      digitalWrite(MOTOR_PIN, currentlyOn ? LOW : HIGH);   // instant, non-blocking pump response
-    }
-    buttonPressedFlag = true;
+    return;
   }
+
+  if (now - lastButtonIsrMs <= BUTTON_DEBOUNCE_MS) return;
+  lastButtonIsrMs = now;
+
+  if (!otTripped) {
+    bool currentlyOn = (digitalRead(MOTOR_PIN) == HIGH);
+    digitalWrite(MOTOR_PIN, currentlyOn ? LOW : HIGH);   // instant, non-blocking pump response
+  }
+  buttonPressedFlag = true;
 }

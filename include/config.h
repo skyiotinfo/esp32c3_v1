@@ -17,15 +17,16 @@
 #define DIO_PIN        2
 #define OT_SENSOR_PIN  7
 #define BUTTON_PIN     9   // active-LOW with INPUT_PULLUP; also the BOOT button
+#define BUTTON_DEBOUNCE_MS 200
 
 // ─────────────────────────── DEVICE IDENTITY ───────────────────────────────
 // DEVICE_ID must be unique per physical unit and must match the device_id
 // row the mobile app creates via claim_device_direct() when the user scans
 // and provisions this board over BLE (BLE advertises "PumpCtrl-<DEVICE_ID>").
-#define DEVICE_ID              1001
+#define DEVICE_ID              1011
 #define FIRMWARE_VERSION       "4.0.0-esp32c3"
 
-#define BLE_DEVICE_NAME        "PumpCtrl-1001"   // keep in sync with DEVICE_ID above
+#define BLE_DEVICE_NAME        "PumpCtrl-1011"   // keep in sync with DEVICE_ID above
 #define BLE_SERVICE_UUID       "12345678-1234-1234-1234-1234567890ab"
 #define BLE_CHAR_UUID          "abcd1234-ab12-ab12-ab12-abcdef123456"
 
@@ -55,6 +56,7 @@
 #define SCHEDULE_FETCH_INTERVAL_MS  (2UL * 60 * 1000)        // re-read device_seq/sch
 #define WIFI_RETRY_INTERVAL_MS      (30UL * 1000)
 #define INTERNET_CHECK_INTERVAL_MS  (10UL * 1000)
+#define STATUS_PRINT_INTERVAL_MS    (1UL * 1000)             // serial diagnostics only
 
 // FIX vs. the ESP8266 source: there MAX_SAFETY_RUNTIME_MIN was defined as a
 // *millisecond* value (30UL*60*1000) but compared directly against a count

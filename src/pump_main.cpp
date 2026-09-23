@@ -53,7 +53,7 @@ void setup() {
   digitalWrite(MOTOR_PIN, LOW);
   pinMode(BUTTON_PIN,    INPUT_PULLUP);
   pinMode(OT_SENSOR_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, FALLING);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, CHANGE);
 
   dispObj.setBrightness(0x0a);
   dispObj.clear();
@@ -116,6 +116,8 @@ void setup() {
 }
 
 void loop() {
+  static unsigned long lastStatusPrintMs = 0;
+
   esp_task_wdt_reset();
 
   rtc_service();   // rate-limited RTC read + hot-plug detection (must run before any time use)
@@ -132,7 +134,11 @@ void loop() {
 
   updateMotorRuntimeCounter();
   net_manageConnectivity();
-  printStatusLine();
+
+  if (millis() - lastStatusPrintMs >= STATUS_PRINT_INTERVAL_MS) {
+    lastStatusPrintMs = millis();
+    printStatusLine();
+  }
 
   delay(100);
 }
