@@ -81,6 +81,10 @@ void net_manageConnectivity() {
 
     if (internetAvailable && !login_status) {
       net_login();
+      if (login_status) {
+        int actualState = (digitalRead(MOTOR_PIN) == HIGH) ? 1 : 0;
+        net_setDeviceCommand(actualState, 0);
+      }
     }
   }
 
