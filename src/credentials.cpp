@@ -13,6 +13,17 @@ void loadCredentials() {
   p.getString("skey",  SUPABASE_KEY, sizeof(SUPABASE_KEY));
   g_provisioned = p.getBool("prov", false);
   p.end();
+
+  // Nothing saved in NVS yet (brand-new unit, never BLE-provisioned) -> fall
+  // back to the compiled-in default WiFi so the board still comes up on a
+  // network. Supabase login (email/password) has no such fallback: it stays
+  // empty until real BLE provisioning supplies it.
+  if (strlen(WIFI_SSID) == 0) {
+    strlcpy(WIFI_SSID, DEFAULT_WIFI_SSID, sizeof(WIFI_SSID));
+    strlcpy(WIFI_PASS, DEFAULT_WIFI_PASS, sizeof(WIFI_PASS));
+    Serial.println(F("[CRED] No saved WiFi - using compiled-in default WiFi"));
+  }
+
   Serial.printf("[CRED] Loaded. SSID='%s' provisioned=%d\n", WIFI_SSID, g_provisioned);
 }
 
@@ -45,3 +56,9 @@ void clearCredentials() {
   g_provisioned = false;
   Serial.println(F("[CRED] Cleared"));
 }
+// NOTE: no longer called from the boot-time provisioning flow (pump_main.cpp)
+// - holding PROVISION_BUTTON_PIN now enters BLE provisioning WITHOUT wiping
+// existing credentials first, so a timed-out/abandoned provisioning attempt
+// always leaves the board able to boot on its previous, working WiFi. This
+// function is kept available for a possible future explicit "factory reset"
+// command.

@@ -143,6 +143,23 @@ void net_setDeviceCommand(int state1, int state2) {
 }
 
 // ───────────────────────────────────────────────────────────────
+// jsonEscape()
+// Minimal safety net for the one field here that isn't a value we
+// control ourselves (the WiFi SSID) - escapes '"' and '\' so an unusual
+// SSID can never break the hand-built JSON body below.
+// ───────────────────────────────────────────────────────────────
+static String jsonEscape(const String &in) {
+  String out;
+  out.reserve(in.length());
+  for (size_t i = 0; i < in.length(); i++) {
+    char c = in[i];
+    if (c == '"' || c == '\\') out += '\\';
+    out += c;
+  }
+  return out;
+}
+
+// ───────────────────────────────────────────────────────────────
 // net_deviceReport()
 // ───────────────────────────────────────────────────────────────
 void net_deviceReport() {
@@ -152,13 +169,15 @@ void net_deviceReport() {
   }
 
   int deviceState = (digitalRead(MOTOR_PIN) == HIGH) ? 1 : 0;
-  String mac = WiFi.macAddress();
+  String mac      = WiFi.macAddress();
+  String wifiSsid = jsonEscape(WiFi.SSID());   // only the SSID is ever sent - never the password
 
   String body = "{\"p_device_id\":" + String(DEVICE_ID) +
                 ",\"p_device_state\":" + String(deviceState) +
                 ",\"p_online\":10" +
                 ",\"p_firmware_version\":\"" + String(FIRMWARE_VERSION) + "\"" +
-                ",\"p_mac_address\":\"" + mac + "\"";
+                ",\"p_mac_address\":\"" + mac + "\"" +
+                ",\"p_wifi_ssid\":\"" + wifiSsid + "\"";
   if (pendingLastError.length() > 0) {
     body += ",\"p_last_error\":\"" + pendingLastError + "\"";
   } else {

@@ -3,9 +3,10 @@
 // config.h — all compile-time constants for one physical unit.
 //
 // The only things you should ever need to edit per physical device are in
-// the "DEVICE IDENTITY" block below. Everything else (WiFi credentials,
-// Supabase login email/password) is provisioned at first boot over BLE by
-// the mobile app — it is NOT hardcoded here, unlike the old ESP8266 sketch.
+// the "DEVICE IDENTITY" block below. WiFi has a hardcoded fallback for the
+// very first boot (see DEFAULT_WIFI_SSID/PASS); Supabase login (email/
+// password) has no hardcoded fallback and is only ever set by BLE
+// provisioning.
 // ============================================================================
 
 // ─────────────────────────── PIN MAP (ESP32-C3-DevKitC-02) ────────────────
@@ -16,7 +17,19 @@
 #define CLK_PIN        1
 #define DIO_PIN        2
 #define OT_SENSOR_PIN  7
-#define BUTTON_PIN     9   // active-LOW with INPUT_PULLUP; also the BOOT button
+#define BUTTON_PIN     9   // active-LOW with INPUT_PULLUP; manual motor on/off
+#define BUTTON_DEBOUNCE_MS 200
+
+// Dedicated BLE-provisioning trigger button — deliberately a DIFFERENT pin
+// from BUTTON_PIN. GPIO9 (BUTTON_PIN, also the board's silkscreened "BOOT"
+// button) is one of the ESP32-C3's three strapping pins (GPIO2, GPIO8,
+// GPIO9): if it's held LOW at the exact instant of power-on/reset, the ROM
+// bootloader can drop into UART download mode instead of running this
+// firmware at all - a risk that's entirely a hardware/ROM behavior, outside
+// this code's control. PROVISION_BUTTON_PIN=10 avoids all three strapping
+// pins (2, 8, 9), so holding it through power-up is always safe and always
+// reaches setup() normally.
+#define PROVISION_BUTTON_PIN  10   // active-LOW with INPUT_PULLUP; hold at boot to provision
 
 // ─────────────────────────── DEVICE IDENTITY ───────────────────────────────
 // DEVICE_ID must be unique per physical unit and must match the device_id
@@ -28,6 +41,15 @@
 #define BLE_DEVICE_NAME        "PumpCtrl-1001"   // keep in sync with DEVICE_ID above
 #define BLE_SERVICE_UUID       "12345678-1234-1234-1234-1234567890ab"
 #define BLE_CHAR_UUID          "abcd1234-ab12-ab12-ab12-abcdef123456"
+
+// ─────────────────────────── DEFAULT WIFI (first boot only) ────────────────
+// Used only when NVS has no saved WiFi SSID yet (a brand-new, never-BLE-
+// provisioned unit) - e.g. a factory/staging network so the device comes up
+// on WiFi (and can time-sync, be reached, etc.) before the end customer ever
+// runs BLE provisioning. The moment real BLE provisioning succeeds, the
+// app-supplied SSID/password overwrite these in NVS and take over for good.
+#define DEFAULT_WIFI_SSID      "anupam"
+#define DEFAULT_WIFI_PASS      "12345678"
 
 // ─────────────────────────── DEFAULT SUPABASE PROJECT ──────────────────────
 // These are only *defaults* seeded into NVS the first time the device boots
@@ -55,6 +77,7 @@
 #define SCHEDULE_FETCH_INTERVAL_MS  (2UL * 60 * 1000)        // re-read device_seq/sch
 #define WIFI_RETRY_INTERVAL_MS      (30UL * 1000)
 #define INTERNET_CHECK_INTERVAL_MS  (10UL * 1000)
+#define STATUS_PRINT_INTERVAL_MS    (1UL * 1000)             // serial diagnostics only
 
 // FIX vs. the ESP8266 source: there MAX_SAFETY_RUNTIME_MIN was defined as a
 // *millisecond* value (30UL*60*1000) but compared directly against a count
@@ -67,4 +90,5 @@
 #define HTTP_CONNECT_TIMEOUT_MS     3000    // bounds the TCP/TLS connect phase of every call
 #define HTTP_RESPONSE_TIMEOUT_MS    5000    // bounds waiting for a response after connecting
 
-#define BOOT_REPROVISION_HOLD_MS    5000    // hold BUTTON_PIN at boot this long to re-provision
+#define BOOT_REPROVISION_HOLD_MS    5000              // hold PROVISION_BUTTON_PIN this long at boot to enter provisioning
+#define BLE_PROVISION_TIMEOUT_MS    (10UL * 60 * 1000) // give up waiting for the app after 10 minutes

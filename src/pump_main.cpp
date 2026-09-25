@@ -53,35 +53,53 @@ void setup() {
   digitalWrite(MOTOR_PIN, LOW);
   pinMode(BUTTON_PIN,    INPUT_PULLUP);
   pinMode(OT_SENSOR_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, FALLING);
+  pinMode(PROVISION_BUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, CHANGE);
 
   dispObj.setBrightness(0x0a);
   dispObj.clear();
 
   loadCredentials();
 
-  // Hold the button through boot to force re-provisioning (new WiFi/login).
-  if (digitalRead(BUTTON_PIN) == LOW) {
-    Serial.println(F("[BOOT] Button held - waiting for re-provision..."));
+  // Hold the DEDICATED provisioning button (not the motor button) through
+  // boot to enter BLE provisioning. Existing WiFi/Supabase credentials are
+  // left completely untouched here - they are only ever overwritten if the
+  // app actually finishes sending new ones (see ble_provisioning.cpp's
+  // BleCharCB::onWrite -> saveCredentials()). If nothing arrives within
+  // BLE_PROVISION_TIMEOUT_MS (10 minutes), provisioning is abandoned and
+  // the board simply continues booting on whatever credentials were already
+  // loaded above - so a timed-out or accidental provisioning attempt can
+  // never strand the board without its previous, working WiFi.
+  bool enterProvisioning = false;
+  if (digitalRead(PROVISION_BUTTON_PIN) == LOW) {
+    Serial.println(F("[BOOT] Provision button held - confirming..."));
     unsigned long t = millis();
-    while (digitalRead(BUTTON_PIN) == LOW && millis() - t < BOOT_REPROVISION_HOLD_MS) {
+    while (digitalRead(PROVISION_BUTTON_PIN) == LOW && millis() - t < BOOT_REPROVISION_HOLD_MS) {
       delay(50);
     }
     if (millis() - t >= BOOT_REPROVISION_HOLD_MS - 100) {
-      Serial.println(F("[BOOT] Re-provisioning - clearing NVS"));
-      clearCredentials();
+      enterProvisioning = true;
     }
   }
   buttonPressedFlag = false;
 
-  if (!g_provisioned || strlen(WIFI_SSID) == 0) {
-    Serial.println(F("[BOOT] Not provisioned - starting BLE"));
+  if (enterProvisioning) {
+    Serial.println(F("[BOOT] Entering BLE provisioning (old credentials kept unless new ones arrive)"));
     startBleProvisioning();
-    while (!bleDone) {
+    unsigned long provStart = millis();
+    while (!bleDone && millis() - provStart < BLE_PROVISION_TIMEOUT_MS) {
       esp_task_wdt_reset();
       delay(100);
     }
-    return; // unreachable in practice: successful provisioning calls ESP.restart()
+    // bleDone == true means the app already succeeded, and saveCredentials()
+    // + ESP.restart() already ran inside the BLE write callback - this line
+    // is only reached on a timeout, so we stop advertising and fall through
+    // to the normal WiFi connect below using the SAME credentials that were
+    // already loaded (old real ones, or the compiled-in default).
+    if (!bleDone) {
+      Serial.println(F("[BOOT] Provisioning window expired - continuing with existing credentials"));
+      stopBleProvisioning();
+    }
   }
 
   loadEeprom();
@@ -116,6 +134,8 @@ void setup() {
 }
 
 void loop() {
+  static unsigned long lastStatusPrintMs = 0;
+
   esp_task_wdt_reset();
 
   rtc_service();   // rate-limited RTC read + hot-plug detection (must run before any time use)
@@ -132,7 +152,11 @@ void loop() {
 
   updateMotorRuntimeCounter();
   net_manageConnectivity();
-  printStatusLine();
+
+  if (millis() - lastStatusPrintMs >= STATUS_PRINT_INTERVAL_MS) {
+    lastStatusPrintMs = millis();
+    printStatusLine();
+  }
 
   delay(100);
 }
