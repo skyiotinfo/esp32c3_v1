@@ -35,6 +35,8 @@
 #include "motor_control.h"
 #include "ot_sensor.h"
 #include "display.h"
+#include "sprinkler_link.h"   // additive: optional motor-board/valve feature
+#include "sprinkler_api.h"    // additive: optional motor-board/valve feature
 
 void setup() {
   Serial.begin(115200);
@@ -58,6 +60,8 @@ void setup() {
 
   dispObj.setBrightness(0x0a);
   dispObj.clear();
+
+  sprinklerLink_init();   // additive: SoftwareSerial link to the (unchanged) motor board
 
   loadCredentials();
 
@@ -152,6 +156,7 @@ void loop() {
 
   updateMotorRuntimeCounter();
   net_manageConnectivity();
+  sprinkler_service();   // additive: optional motor-board/valve feature - no-ops if no children exist
 
   if (millis() - lastStatusPrintMs >= STATUS_PRINT_INTERVAL_MS) {
     lastStatusPrintMs = millis();

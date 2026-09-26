@@ -92,3 +92,26 @@
 
 #define BOOT_REPROVISION_HOLD_MS    5000              // hold PROVISION_BUTTON_PIN this long at boot to enter provisioning
 #define BLE_PROVISION_TIMEOUT_MS    (10UL * 60 * 1000) // give up waiting for the app after 10 minutes
+
+// ─────────────────────────── SPRINKLER / MOTOR-BOARD LINK (additive) ───────
+// Optional, additional feature: this same ESP32 can ALSO act as a "Supabase
+// board" driving a separate ESP8266 motor board (over SoftwareSerial), which
+// fans out to up to MAX_VALVES ESP-NOW valve nodes. Nothing above this is
+// touched by this feature - the existing single-relay pump/device behavior
+// (schedules, BLE provisioning, EEPROM, reports) runs exactly as before.
+//
+// A valve is just an ordinary child `device` row (device_type = 2 'valve',
+// parent_device_id = DEVICE_ID) - the app's existing MotorValvesScreen /
+// listChildDevices() / device_seq flow already fully supports this, so no
+// new Supabase table is needed. Each child's position in the list (ordered
+// by device_id) is its motor-board node number (1..MAX_VALVES).
+//
+// The motor board and valve-node firmware are UNCHANGED: the wire protocol
+// below ("{P v1v2...v8}\n" in both directions) matches their existing code
+// byte for byte.
+#define MAX_VALVES                    8
+#define SPRINKLER_MOTOR_RX_PIN        6   // ESP32 RX <- motor board TX (its D1/GPIO5)
+#define SPRINKLER_MOTOR_TX_PIN        7   // ESP32 TX -> motor board RX (its D2/GPIO4)
+#define SPRINKLER_MOTOR_BAUD          9600
+#define SPRINKLER_CHILD_POLL_MS       (10UL * 1000)      // refresh children + state_1 (mirrors COMMAND_POLL_INTERVAL_MS)
+#define SPRINKLER_SCHEDULE_POLL_MS    (2UL * 60 * 1000)  // refresh each child's device_seq/sch (mirrors SCHEDULE_FETCH_INTERVAL_MS)
